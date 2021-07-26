@@ -15,6 +15,14 @@ and add inside a JSON file that contains the references of yourself and your des
 }
 ```
 
+## BUILD
+Simply RUN:
+```json
+go build
+# It generate the executable to launch with the name
+# of the project
+```
+
 Each file rapresent a user, so if you need to create an automation for your two employees, Jane and John, simply
 create two files with the informations provided in the example.
 ```bash
@@ -24,6 +32,9 @@ ls ~/.config/nibblefibble
 - john.json
 - jane.json
 ```
+
+## USE WITH CRON
+If your system have `cron` service installed. You simply must create a valid cron rule to execute nibblefibble.
 
 ## LICENSE
 Licensed under [MIT](./LICENSE)

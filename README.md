@@ -26,4 +26,4 @@ ls ~/.config/nibblefibble
 ```
 
 ## LICENSE
-MIT
+Licensed under [MIT](./LICENSE)

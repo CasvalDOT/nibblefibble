@@ -12,14 +12,24 @@ and add inside a JSON file that contains the references of yourself and your des
   "token": "the_jwt",
   "desk_id": "your_desk_id",
   "space_id": "your_space_id",
-  "excluding_days": [6, 7]
+  "excluding_days": [6, 0]
 }
 ```
 
 #### Excluding days
 The exclude days option allows you to define a list of days in which to skip the desktop booking process.
 To use this option you must provide an array of integers that correspond to the number of the day of the week; for example
-`[6,7]` means "ignore saturday and sunday".
+`[6,0]` means "ignore saturday and sunday". Below a map of days to int:
+
+```
+0 => Sunday
+1 => Monday
+2 => Tuesday
+3 => Wednesday
+4 => Thursday
+5 => Friday
+6 => Saturday
+```
 
 NOTE!!
 

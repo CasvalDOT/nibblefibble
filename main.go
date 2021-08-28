@@ -35,6 +35,7 @@ type generalConfig struct {
 
 type bookDeskPayload struct {
 	Day     string `json:"day"`
+	WeekDay int    `json:"-"`
 	From    int    `json:"from"`
 	To      int    `json:"to"`
 	DeskID  string `json:"desk_id"`
@@ -126,9 +127,8 @@ func readAuthorization(filePath string) (authConfig, error) {
 	form. For example:
 	20210210
 */
-func composeNextDay() string {
-	now := time.Now().Add(24 * time.Hour)
-	year, month, day := now.Date()
+func composeNextDay(date time.Time) string {
+	year, month, day := date.Date()
 
 	monthAsString := strconv.Itoa(int(month))
 	dayAsString := strconv.Itoa(day)
@@ -199,10 +199,14 @@ func bookDesk(payload bookDeskPayload, bearerToken string) error {
 }
 
 func prepareBookingPayload(auth authConfig) bookDeskPayload {
+	tomorrow := time.Now().Add(24 * time.Hour)
+	tomorrowWeekdayAsInt := int(tomorrow.Weekday())
+
 	return bookDeskPayload{
 		To:      1800,
 		From:    900,
-		Day:     composeNextDay(),
+		Day:     composeNextDay(tomorrow),
+		WeekDay: tomorrowWeekdayAsInt,
 		SpaceID: auth.SpaceID,
 		DeskID:  auth.DeskID,
 	}
@@ -230,13 +234,11 @@ func renderNotificationTemplate(templateRaw interface{}, identity string) (strin
 	return templateAsBuffer.String(), nil
 }
 
-func abortTheBooking(excludingDays []int) bool {
-	weekday := time.Now().Weekday()
-	weekdayAsInt := int(weekday)
+func abortTheBooking(weekday int, excludingDays []int) bool {
 	matchExludedDay := false
 
 	for _, exludedDay := range excludingDays {
-		if weekdayAsInt == exludedDay {
+		if weekday == exludedDay {
 			matchExludedDay = true
 			break
 		}
@@ -272,14 +274,14 @@ func main() {
 				return
 			}
 
-			if abortTheBooking(authorization.ExcludingDays) == true {
-				fmt.Println("This day is excluded from the booking process")
-				return
-			}
-
 			payload := prepareBookingPayload(authorization)
 
 			fmt.Printf("Try to booking the desk for the date %s for user %s\n", payload.Day, authorization.Identity)
+
+			if abortTheBooking(payload.WeekDay, authorization.ExcludingDays) == true {
+				fmt.Println("This day is excluded from the booking process")
+				return
+			}
 
 			err = bookDesk(payload, authorization.BearerToken)
 			if err != nil {

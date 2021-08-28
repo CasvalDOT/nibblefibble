@@ -15,9 +15,47 @@ and add inside a JSON file that contains the references of yourself and your des
 }
 ```
 
+NOTE!!
+
+You can also create multiple file with different identities and tokens, if you need to booking for multiple persons
+
+## CONFIGURATION FILE
+
+You can set some params and customizations using the file `~/.config/conf.json`
+
+## NOTIFICATION
+
+Nibblefibble support to send a notification if something wrong occured during the desktop rent process.
+The notiifcation channel used is Slack (For now). You can configure the notifications using the `conf.json` file.
+Here the basic structure for a simple notification.
+```json
+{
+  "slack_hook": "https://hooks.slack.com/services/YOUR/WEB/HOOK",
+  "slack_template": {
+    "blocks": [
+      {
+        "type": "header",
+        "text": {
+          "type": "plain_text",
+          "text": "NibbleFibble error",
+          "emoji": true
+        }
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "{{.Identity}}, an error occured during the rent of your desk"
+        }
+      }
+    ]
+  }
+}
+```
+
 ## BUILD
 Simply RUN:
-```json
+```bash
 go build
 # It generate the executable to launch with the name
 # of the project

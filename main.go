@@ -13,9 +13,31 @@ import (
 	"time"
 )
 
+const slackTemplate = `{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "NibbleFibble error",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "An error occured during the rent of your desk"
+      }
+    }
+  ]
+}
+`
+
 const (
-	endpoint        = "https://api.nibol.co/v2/app/business/reservation/desk/create"
-	authorizeFolder = "/.config/nibblefibble"
+	generalConfigurationFileName = "conf.json"
+	endpoint                     = "https://api.nibol.co/v2/app/business/reservation/desk/create"
+	authorizeFolder              = "/.config/nibblefibble"
 )
 
 type authConfig struct {
@@ -23,6 +45,10 @@ type authConfig struct {
 	SpaceID     string `json:"space_id"`
 	BearerToken string `json:"token"`
 	Identity    string `json:"identity"`
+}
+
+type generalConfig struct {
+	SlackHook string `json:"slack_hook"`
 }
 
 type bookDeskPayload struct {
@@ -53,10 +79,39 @@ func listFileAuthorizations() ([]string, error) {
 	}
 
 	for _, file := range files {
-		output = append(output, basePath+"/"+file.Name())
+		if file.Name() != generalConfigurationFileName {
+			output = append(output, basePath+"/"+file.Name())
+		}
 	}
 
 	return output, nil
+}
+
+/*
+  Read a JSON file.
+  The function return the bytes obtained
+*/
+func readGeneralConfig() (generalConfig, error) {
+	var payload generalConfig
+
+	homeDIR, err := os.UserHomeDir()
+	if err != nil {
+		return payload, err
+	}
+
+	basePath := homeDIR + authorizeFolder
+
+	file, err := ioutil.ReadFile(basePath + "/" + generalConfigurationFileName)
+	if err != nil {
+		return payload, err
+	}
+
+	err = json.Unmarshal([]byte(file), &payload)
+	if err != nil {
+		return payload, err
+	}
+
+	return payload, nil
 }
 
 /*
@@ -100,6 +155,26 @@ func composeNextDay() string {
 	}
 
 	return strconv.Itoa(year) + monthAsString + dayAsString
+}
+
+func sendNotification(message string, hook string) error {
+	var jsonPayload map[string]interface{}
+	err := json.Unmarshal([]byte(message), &jsonPayload)
+	if err != nil {
+		return err
+	}
+
+	bytesPayload, err := json.Marshal(jsonPayload)
+	if err != nil {
+		return err
+	}
+
+	_, err = http.Post(hook, "application/json", bytes.NewBuffer(bytesPayload))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func bookDesk(payload bookDeskPayload, bearerToken string) error {
@@ -150,6 +225,13 @@ func prepareBookingPayload(auth authConfig) bookDeskPayload {
 func main() {
 	wg := new(sync.WaitGroup)
 
+	// Read configuration file general
+	conf, err := readGeneralConfig()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
 	filesPath, err := listFileAuthorizations()
 	if err != nil {
 		fmt.Println(err.Error())
@@ -174,6 +256,10 @@ func main() {
 			err = bookDesk(payload, authorization.BearerToken)
 			if err != nil {
 				fmt.Println("Error", err.Error())
+
+				// Notify to a channel if something wrong
+				// occured
+				sendNotification(slackTemplate, conf.SlackHook)
 			}
 		}(filePath)
 	}

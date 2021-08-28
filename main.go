@@ -10,29 +10,9 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"text/template"
 	"time"
 )
-
-const slackTemplate = `{
-  "blocks": [
-    {
-      "type": "header",
-      "text": {
-        "type": "plain_text",
-        "text": "NibbleFibble error",
-        "emoji": true
-      }
-    },
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "An error occured during the rent of your desk"
-      }
-    }
-  ]
-}
-`
 
 const (
 	generalConfigurationFileName = "conf.json"
@@ -48,7 +28,8 @@ type authConfig struct {
 }
 
 type generalConfig struct {
-	SlackHook string `json:"slack_hook"`
+	SlackHook     string      `json:"slack_hook"`
+	SlackTemplate interface{} `json:"slack_template`
 }
 
 type bookDeskPayload struct {
@@ -92,6 +73,7 @@ func listFileAuthorizations() ([]string, error) {
   The function return the bytes obtained
 */
 func readGeneralConfig() (generalConfig, error) {
+	var unstructuredPayload map[string]interface{}
 	var payload generalConfig
 
 	homeDIR, err := os.UserHomeDir()
@@ -106,10 +88,13 @@ func readGeneralConfig() (generalConfig, error) {
 		return payload, err
 	}
 
-	err = json.Unmarshal([]byte(file), &payload)
+	err = json.Unmarshal([]byte(file), &unstructuredPayload)
 	if err != nil {
 		return payload, err
 	}
+
+	payload.SlackHook = fmt.Sprintf("%v", unstructuredPayload["slack_hook"])
+	payload.SlackTemplate = unstructuredPayload["slack_template"]
 
 	return payload, nil
 }
@@ -222,6 +207,28 @@ func prepareBookingPayload(auth authConfig) bookDeskPayload {
 	}
 }
 
+func renderNotificationTemplate(templateRaw interface{}, identity string) (string, error) {
+	templateAsString, err := json.Marshal(templateRaw)
+	if err != nil {
+		return "", err
+	}
+
+	templateInstance, err := template.New("notification").Parse(string(templateAsString))
+	if err != nil {
+		return "", err
+	}
+
+	var templateAsBuffer bytes.Buffer
+	err = templateInstance.Execute(&templateAsBuffer, map[string]interface{}{
+		"Identity": identity,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return templateAsBuffer.String(), nil
+}
+
 func main() {
 	wg := new(sync.WaitGroup)
 
@@ -257,9 +264,15 @@ func main() {
 			if err != nil {
 				fmt.Println("Error", err.Error())
 
+				templateRendered, err := renderNotificationTemplate(conf.SlackTemplate, authorization.Identity)
+				if err != nil {
+					fmt.Println("Error", err.Error())
+					return
+				}
+
 				// Notify to a channel if something wrong
 				// occured
-				sendNotification(slackTemplate, conf.SlackHook)
+				sendNotification(templateRendered, conf.SlackHook)
 			}
 		}(filePath)
 	}

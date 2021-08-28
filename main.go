@@ -21,10 +21,11 @@ const (
 )
 
 type authConfig struct {
-	DeskID      string `json:"desk_id"`
-	SpaceID     string `json:"space_id"`
-	BearerToken string `json:"token"`
-	Identity    string `json:"identity"`
+	DeskID        string `json:"desk_id"`
+	SpaceID       string `json:"space_id"`
+	BearerToken   string `json:"token"`
+	Identity      string `json:"identity"`
+	ExcludingDays []int  `json:"excluding_days"`
 }
 
 type generalConfig struct {
@@ -229,9 +230,22 @@ func renderNotificationTemplate(templateRaw interface{}, identity string) (strin
 	return templateAsBuffer.String(), nil
 }
 
-func main() {
-	wg := new(sync.WaitGroup)
+func abortTheBooking(excludingDays []int) bool {
+	weekday := time.Now().Weekday()
+	weekdayAsInt := int(weekday)
+	matchExludedDay := false
 
+	for _, exludedDay := range excludingDays {
+		if weekdayAsInt == exludedDay {
+			matchExludedDay = true
+			break
+		}
+	}
+
+	return matchExludedDay
+}
+
+func main() {
 	// Read configuration file general
 	conf, err := readGeneralConfig()
 	if err != nil {
@@ -245,6 +259,7 @@ func main() {
 		return
 	}
 
+	wg := new(sync.WaitGroup)
 	wg.Add(len(filesPath))
 
 	for _, filePath := range filesPath {
@@ -253,6 +268,12 @@ func main() {
 
 			authorization, err := readAuthorization(fp)
 			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if abortTheBooking(authorization.ExcludingDays) == true {
+				fmt.Println("This day is excluded from the booking process")
 				return
 			}
 

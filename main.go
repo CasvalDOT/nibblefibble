@@ -29,7 +29,7 @@ type authConfig struct {
 
 type generalConfig struct {
 	SlackHook     string      `json:"slack_hook"`
-	SlackTemplate interface{} `json:"slack_template`
+	SlackTemplate interface{} `json:"slack_template"`
 }
 
 type bookDeskPayload struct {
